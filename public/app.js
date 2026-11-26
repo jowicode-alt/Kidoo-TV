@@ -72,6 +72,16 @@ async function loadInsights(){
  if(top.status==="fulfilled")renderTopVideos(top.value);else renderReportError("top-videos",top.reason);
  $("topic-signals").innerHTML=topicSummary();
  const dates=dateRange();$("report-window").textContent=dates.startDate.slice(5)+" – "+dates.endDate.slice(5);
+ // Fetch the two most recent complete reporting days before running automatic edits.
+ try{
+  const recent=await reportRecent48h({metrics:"views",dimensions:"video",sort:"-views",maxResults:"200"});
+  state.recentViews=new Map((recent.rows||[]).map(row=>[row[0],Number(row[1]||0)]));
+  state.recentViewsReady=true;
+ }catch(e){
+  state.recentViews=new Map();
+  state.recentViewsReady=false;
+  console.warn("Recent-view eligibility report failed:",e.message);
+ }
  await runAutoOptimization();
 }
 function renderReportError(id,error){$(id).innerHTML='<div class="empty-state">This report is not available yet. '+escapeHtml(error?.message||"Try refreshing later.")+'</div>'}
@@ -110,8 +120,8 @@ function safeSearchPhrase(value){
  return phrase.length>=8&&phrase.length<=48&&phrase.split(" ").filter(Boolean).length>=2?phrase:"";
 }
 async function bestVideoSearchPhrase(videoId){
- const data=await report({metrics:"views",dimensions:"insightTrafficSourceDetail",filters:"video=="+videoId+";insightTrafficSourceType==YT_SEARCH",sort:"-views",maxResults:"10"});
- return (data.rows||[]).map(row=>({phrase:safeSearchPhrase(row[0]),views:Number(row[1]||0)})).find(row=>row.phrase&&row.views>=20)||null;
+ const data=await reportRecent48h({metrics:"views",dimensions:"insightTrafficSourceDetail",filters:"video=="+videoId+";insightTrafficSourceType==YT_SEARCH",sort:"-views",maxResults:"10"});
+ return (data.rows||[]).map(row=>({phrase:safeSearchPhrase(row[0]),views:Number(row[1]||0)})).find(row=>row.phrase&&row.views>=1)||null;
 }
 async function runAutoOptimization(){
  renderAutoOptimizeStatus();
