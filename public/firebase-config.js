@@ -7,4 +7,4 @@ export const firebaseConfig = {
   messagingSenderId: "972333260048",
   appId: "1:972333260048:web:6d022c42414c9f8c77d995"
 };
-export const googleOAuthClientId = "REPLACE_WITH_GOOGLE_OAUTH_WEB_CLIENT_ID";
+export const googleOAuthClientId = "972333260048-9bg4ianbjea3pffvn24e0ff44m1sm0r2.apps.googleusercontent.com";
