@@ -3,7 +3,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signO
 import { firebaseConfig, googleOAuthClientId } from "./firebase-config.js";
 
 const $ = (id) => document.getElementById(id);
-const state = { user:null, token:null, channel:null, videos:[], analytics:null, performance:new Map(), autoOptimize:localStorage.getItem("jowi-auto-optimize")!=="off" };
+const state = { user:null, token:null, channel:null, videos:[], analytics:null, performance:new Map(), recentViews:new Map(), recentViewsReady:false, autoOptimize:localStorage.getItem("jowi-auto-optimize")!=="off" };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const scopes = ["https://www.googleapis.com/auth/youtube.readonly","https://www.googleapis.com/auth/yt-analytics.readonly","https://www.googleapis.com/auth/youtube.force-ssl"];
@@ -36,6 +36,8 @@ async function apiRequest(url){const r=await fetch(url,{headers:{Authorization:"
 async function yt(path,params={}){if(!state.token)throw new Error("Connect YouTube first.");const url=new URL("https://www.googleapis.com/youtube/v3/"+path);Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));return apiRequest(url)}
 async function analytics(params){const url=new URL("https://youtubeanalytics.googleapis.com/v2/reports");Object.entries(params).forEach(([k,v])=>url.searchParams.set(k,v));return apiRequest(url)}
 async function report(params){const range=dateRange();return analytics({ids:"channel==MINE",...range,...params})}
+function recent48hRange(){const end=new Date();end.setUTCDate(end.getUTCDate()-1);const start=new Date(end);start.setUTCDate(start.getUTCDate()-1);return {startDate:start.toISOString().slice(0,10),endDate:end.toISOString().slice(0,10)}}
+async function reportRecent48h(params){return analytics({ids:"channel==MINE",...recent48hRange(),...params})}
 async function loadChannelData(){
  try{toast("Loading channel data…");const ch=await yt("channels",{part:"snippet,statistics,contentDetails",mine:"true"});if(!ch.items?.length)throw new Error("No YouTube channel was found for the authorized Google account.");state.channel=ch.items[0];const uploads=state.channel.contentDetails.relatedPlaylists.uploads;const pl=await yt("playlistItems",{part:"snippet,contentDetails",playlistId:uploads,maxResults:"25"});const ids=(pl.items||[]).map(x=>x.contentDetails.videoId).join(",");const details=ids?await yt("videos",{part:"snippet,statistics,contentDetails",id:ids}):{items:[]};state.videos=details.items||[];renderVideos();$("metric-videos").textContent=number(state.channel.statistics.videoCount);$("last-updated").textContent="Updated "+new Date().toLocaleTimeString();$("recent-videos").innerHTML=state.videos.slice(0,4).map(videoRow).join("")||'<div class="empty-state">No uploaded videos found.</div>';$("topic-signals").innerHTML=topicSummary();setConnected(true);await loadOverviewAnalytics();await loadInsights();toast("Channel and available analytics loaded.")}catch(e){toast(e.message);console.error(e)}
 }
@@ -76,8 +78,8 @@ function renderTopVideos(data){
 function renderAutoOptimizeStatus(note=""){
  const el=$("auto-optimize-status");if(!el)return;
  el.innerHTML=state.autoOptimize
- ?'<b class="auto-on">Evidence-based automatic optimization is ON</b><span>For videos with at least 100 views, JOWI AI checks their YouTube Search terms. It may add a proven search phrase to the title only when that phrase generated at least 20 views for that video. It also removes duplicate hashtags and excess spacing. Original meaning is preserved.</span>'
- :'<b class="auto-off">Automatic updates are paused</b><span>Turn it on to allow evidence-gated search-title alignment and safe formatting cleanup. You can still review suggestions manually.</span>';
+ ?'<b class="auto-on">Low-activity automatic optimization is ON</b><span>JOWI AI checks the latest 2 complete YouTube reporting days (approximately 48 hours). A video becomes eligible when it receives fewer than 20 views in that window. It may align the title with a relevant YouTube Search phrase found in that same window, or safely clean duplicate hashtags and spacing. It will not invent claims or change the video's meaning.</span>'
+ :'<b class="auto-off">Automatic updates are paused</b><span>Turn it on to allow low-activity checks and conservative metadata improvements. You can still review suggestions manually.</span>';
  if(note)el.insertAdjacentHTML("beforeend",'<small class="auto-note">'+escapeHtml(note)+'</small>');
  $("toggle-auto-optimize").textContent=state.autoOptimize?"Pause auto updates":"Enable auto updates";
 }
@@ -98,10 +100,11 @@ async function bestVideoSearchPhrase(videoId){
 async function runAutoOptimization(){
  renderAutoOptimizeStatus();
  if(!state.autoOptimize||!state.token||!state.videos.length)return;
+ if(!state.recentViewsReady){renderAutoOptimizeStatus("Recent 48-hour analytics are not available yet; no automatic changes were made.");return}
  let cleaned=0,aligned=0,waiting=0,failed=0,checked=0;
  for(const video of state.videos){
-  const metrics=state.performance.get(video.id);
-  if(!metrics||metrics.views<100){waiting++;continue}
+  const views48h=state.recentViews.get(video.id)||0;
+  if(views48h>=20){waiting++;continue}
   checked++;
   let title=cleanMetadataText(video.snippet.title);
   const description=cleanMetadataText(video.snippet.description);
@@ -118,7 +121,7 @@ async function runAutoOptimization(){
    }
   }catch(e){failed++;console.warn("Automatic metadata optimization:",e.message)}
  }
- const note=aligned?aligned+" title(s) aligned with proven YouTube Search phrases.":cleaned?cleaned+" video(s) received safe formatting cleanup.":waiting?"Waiting for at least 100 reported views per video; no metadata changed.":checked?"No sufficiently strong search phrase or safe cleanup was found.":"No eligible video analytics were available yet.";
+ const note=aligned?aligned+" title(s) aligned using relevant search phrases found in the recent reporting window.":cleaned?cleaned+" video(s) received safe formatting cleanup.":waiting?"Videos with 20 or more views in the recent window were left unchanged.":checked?"No relevant search phrase or safe formatting change was found.":"No eligible recent videos were available.";
  renderAutoOptimizeStatus(note+(failed?" "+failed+" report/update(s) could not be completed.":""));
 }
 function videoRow(v){const s=v.snippet;return '<div class="video-row"><img class="thumb" src="'+(s.thumbnails?.medium?.url||"")+'" alt=""><div class="video-info"><b>'+escapeHtml(s.title)+'</b><small>'+dateLabel(s.publishedAt)+' · '+number(v.statistics?.viewCount)+' views</small></div><button class="video-action" data-opt="'+v.id+'">Optimize</button></div>'}
