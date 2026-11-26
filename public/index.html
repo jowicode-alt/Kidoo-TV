@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#080d19"><meta name="description" content="JOWI AI — organic YouTube channel intelligence and video optimization.">
+  <title>JOWI AI — YouTube Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="brand" href="#"><span class="brand-mark">J</span><span>JOWI<span class="brand-ai"> AI</span><small>CREATOR INTELLIGENCE</small></span></a>
+      <div class="side-label">WORKSPACE</div>
+      <button class="nav-item active" data-view="overview"><span>◫</span> Overview</button>
+      <button class="nav-item" data-view="videos"><span>▤</span> Video optimizer</button>
+      <button class="nav-item" data-view="insights"><span>⌁</span> Audience insights</button>
+      <div class="side-bottom"><div class="privacy-note"><span class="dot"></span><div><b>Organic growth mode</b><small>No paid promotions or fake engagement.</small></div></div><div class="user-row"><div class="avatar" id="user-avatar">J</div><div class="user-meta"><b id="user-name">Not signed in</b><small id="user-email">Connect your account</small></div><button id="signout" class="icon-button" title="Sign out" hidden>↗</button></div></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div><div class="eyebrow">CREATOR WORKSPACE / <span id="crumb">OVERVIEW</span></div><h1 id="page-title">Channel overview</h1></div><div class="top-actions"><span class="status-pill"><i></i> Organic mode</span><button id="connect-btn" class="primary-btn">Connect YouTube <span>↗</span></button></div></header>
+      <section id="setup-banner" class="setup-banner"><div class="setup-icon">◎</div><div><b>Connect your YouTube channel to begin</b><p>Sign in with the Google account that owns @jowicode. JOWI AI will read channel performance and suggest improvements. Nothing is changed without your approval.</p></div><button id="setup-connect" class="secondary-btn">Connect channel</button></section>
+      <section id="overview-view" class="view">
+        <div class="section-heading"><div><h2>Performance snapshot</h2><p>Channel metrics from YouTube Analytics.</p></div><span id="last-updated" class="muted">Not connected</span></div>
+        <div class="metrics-grid">
+          <article class="metric-card"><span>Views · last 28 days</span><strong id="metric-views">—</strong><small id="views-change">Connect to load data</small></article>
+          <article class="metric-card"><span>Watch time · hours</span><strong id="metric-watch">—</strong><small>Last 28 days</small></article>
+          <article class="metric-card"><span>Subscribers gained</span><strong id="metric-subs">—</strong><small>Last 28 days</small></article>
+          <article class="metric-card"><span>Published videos</span><strong id="metric-videos">—</strong><small>Latest channel uploads</small></article>
+        </div>
+        <div class="content-grid"><article class="panel"><div class="panel-head"><div><h3>Recent videos</h3><p>Latest uploads and packaging opportunities.</p></div><button class="text-btn" data-go="videos">View all →</button></div><div id="recent-videos" class="video-list"><div class="empty-state">Your recent videos will appear here after connecting YouTube.</div></div></article>
+        <article class="panel opportunity"><div class="panel-head"><div><h3>Growth opportunities</h3><p>Practical, organic recommendations.</p></div><span class="spark">✦</span></div><div id="opportunities"><div class="opportunity-item"><b>Make your topic clear</b><p>Use a specific searchable phrase near the beginning of each title.</p></div><div class="opportunity-item"><b>Strengthen the first lines</b><p>Explain the video's value in the first two description lines.</p></div><div class="opportunity-item"><b>Learn from retention</b><p>Compare watch time and views to identify videos worth revisiting.</p></div></div></article></div>
+      </section>
+      <section id="videos-view" class="view" hidden><div class="section-heading"><div><h2>Video optimizer</h2><p>Review metadata suggestions before applying changes to YouTube.</p></div><button id="refresh-videos" class="secondary-btn">↻ Refresh videos</button></div><div id="all-videos" class="panel"><div class="empty-state">Connect YouTube to inspect your latest uploads.</div></div></section>
+      <section id="insights-view" class="view" hidden><div class="section-heading"><div><h2>Audience insights</h2><p>Understand which topics and discovery sources bring viewers.</p></div></div><div class="content-grid"><article class="panel"><h3>Discovery sources</h3><div id="traffic-sources" class="empty-state">Connect YouTube to load traffic-source reports.</div></article><article class="panel"><h3>Topic signals</h3><div id="topic-signals" class="empty-state">Topic patterns will be identified from your video titles and descriptions.</div></article></div></section>
+      <footer>JOWI AI · Built for sustainable, organic creator growth <span>· No guaranteed reach or algorithm manipulation</span></footer>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+  <script type="module" src="./app.js"></script>
+</body></html>
