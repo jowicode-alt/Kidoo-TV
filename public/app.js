@@ -1,5 +1,5 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js";
 import { firebaseConfig, googleOAuthClientId } from "./firebase-config.js";
 
 const $ = (id) => document.getElementById(id);
@@ -17,7 +17,23 @@ function setConnected(on){$("setup-banner").hidden=on;$("connect-btn").textConte
 function showView(name){document.querySelectorAll(".view").forEach(v=>v.hidden=true);$(name+"-view").hidden=false;document.querySelectorAll(".nav-item").forEach(b=>b.classList.toggle("active",b.dataset.view===name));$("page-title").textContent=({overview:"Channel overview",videos:"Video optimizer",insights:"Audience insights"})[name];$("crumb").textContent=name.toUpperCase()}
 document.querySelectorAll(".nav-item").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.view)));
 document.querySelectorAll("[data-go]").forEach(b=>b.addEventListener("click",()=>showView(b.dataset.go)));
-async function signIn(){try{const provider=new GoogleAuthProvider();provider.setCustomParameters({prompt:"select_account"});await signInWithPopup(auth,provider)}catch(e){toast("Sign-in failed: "+e.message)}}
+async function signIn(){
+ try{
+  const provider=new GoogleAuthProvider();
+  provider.setCustomParameters({prompt:"select_account"});
+  toast("Opening Google sign-in…");
+  await signInWithRedirect(auth,provider);
+ }catch(e){
+  console.error("Google sign-in error:",e);
+  toast("Sign-in failed: "+(e.code||e.message));
+ }
+}
+getRedirectResult(auth).then(result=>{
+ if(result?.user)toast("Signed in successfully. Now connect your YouTube channel.");
+}).catch(e=>{
+ console.error("Google sign-in return error:",e);
+ toast("Google sign-in failed: "+(e.code||e.message));
+});
 onAuthStateChanged(auth,user=>{state.user=user;$("user-name").textContent=user?.displayName||"Not signed in";$("user-email").textContent=user?.email||"Connect your account";$("user-avatar").textContent=(user?.displayName||"J").slice(0,1).toUpperCase();$("signout").hidden=!user;if(!user){state.token=null;state.channel=null;state.videos=[];setConnected(false)}});
 $("signout").addEventListener("click",async()=>{state.token=null;state.channel=null;await signOut(auth);toast("Signed out.")});
 $("connect-btn").addEventListener("click",connectYouTube);$("setup-connect").addEventListener("click",connectYouTube);
