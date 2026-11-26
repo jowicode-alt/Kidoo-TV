@@ -82,10 +82,10 @@ function renderAutoOptimizeStatus(note=""){
  $("toggle-auto-optimize").textContent=state.autoOptimize?"Pause auto updates":"Enable auto updates";
 }
 function cleanMetadataText(value){
- let text=String(value||"").replace(/[ \\t]+/g," ").replace(/\\s+\\n/g,"\\n").trim();
+ let text=String(value||"").replace(/[ \t]+/g," ").replace(/\s+\n/g,"\n").trim();
  const seen=new Set();
- text=text.replace(/#[\\p{L}\\p{N}_]+/gu,tag=>{const key=tag.toLowerCase();if(seen.has(key))return "";seen.add(key);return tag});
- return text.replace(/ {2,}/g," ").replace(/\\n{3,}/g,"\\n\\n").trim();
+ text=text.replace(/#[\p{L}\p{N}_]+/gu,tag=>{const key=tag.toLowerCase();if(seen.has(key))return "";seen.add(key);return tag});
+ return text.replace(/ {2,}/g," ").replace(/\n{3,}/g,"\n\n").trim();
 }
 async function runAutoOptimization(){
  renderAutoOptimizeStatus();
