@@ -1,11 +1,10 @@
 // Public Firebase web-app configuration. These values identify your app; they are not server secrets.
-// Replace the placeholders with the configuration shown in Firebase Console > Project settings > Your apps.
 export const firebaseConfig = {
-  apiKey: "REPLACE_WITH_FIREBASE_WEB_API_KEY",
+  apiKey: "AIzaSyD7Fhr73_Ax7VzBEmaG9zbVjqQ7JWKNucw",
   authDomain: "kidoo-tv.firebaseapp.com",
   projectId: "kidoo-tv",
   storageBucket: "kidoo-tv.firebasestorage.app",
-  messagingSenderId: "REPLACE_WITH_SENDER_ID",
-  appId: "REPLACE_WITH_WEB_APP_ID"
+  messagingSenderId: "972333260048",
+  appId: "1:972333260048:web:6d022c42414c9f8c77d995"
 };
 export const googleOAuthClientId = "REPLACE_WITH_GOOGLE_OAUTH_WEB_CLIENT_ID";
