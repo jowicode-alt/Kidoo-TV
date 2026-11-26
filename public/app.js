@@ -76,8 +76,8 @@ function renderTopVideos(data){
 function renderAutoOptimizeStatus(note=""){
  const el=$("auto-optimize-status");if(!el)return;
  el.innerHTML=state.autoOptimize
- ?'<b class="auto-on">Automatic safe cleanup is ON</b><span>JOWI AI may clean duplicate hashtags and excess spacing when a video has at least 100 views in the reporting period. It will not invent content or rewrite the meaning of a title.</span>'
- :'<b class="auto-off">Automatic updates are paused</b><span>Turn it on to allow evidence-gated formatting cleanup. You can still review and apply suggestions manually.</span>';
+ ?'<b class="auto-on">Evidence-based automatic optimization is ON</b><span>For videos with at least 100 views, JOWI AI checks their YouTube Search terms. It may add a proven search phrase to the title only when that phrase generated at least 20 views for that video. It also removes duplicate hashtags and excess spacing. Original meaning is preserved.</span>'
+ :'<b class="auto-off">Automatic updates are paused</b><span>Turn it on to allow evidence-gated search-title alignment and safe formatting cleanup. You can still review suggestions manually.</span>';
  if(note)el.insertAdjacentHTML("beforeend",'<small class="auto-note">'+escapeHtml(note)+'</small>');
  $("toggle-auto-optimize").textContent=state.autoOptimize?"Pause auto updates":"Enable auto updates";
 }
@@ -87,22 +87,38 @@ function cleanMetadataText(value){
  text=text.replace(/#[\p{L}\p{N}_]+/gu,tag=>{const key=tag.toLowerCase();if(seen.has(key))return "";seen.add(key);return tag});
  return text.replace(/ {2,}/g," ").replace(/\n{3,}/g,"\n\n").trim();
 }
+function safeSearchPhrase(value){
+ const phrase=String(value||"").replace(/[^\p{L}\p{N}\s'-]/gu," ").replace(/\s+/g," ").trim();
+ return phrase.length>=8&&phrase.length<=48&&phrase.split(" ").filter(Boolean).length>=2?phrase:"";
+}
+async function bestVideoSearchPhrase(videoId){
+ const data=await report({metrics:"views",dimensions:"insightTrafficSourceDetail",filters:"video=="+videoId+";insightTrafficSourceType==YT_SEARCH",sort:"-views",maxResults:"10"});
+ return (data.rows||[]).map(row=>({phrase:safeSearchPhrase(row[0]),views:Number(row[1]||0)})).find(row=>row.phrase&&row.views>=20)||null;
+}
 async function runAutoOptimization(){
  renderAutoOptimizeStatus();
  if(!state.autoOptimize||!state.token||!state.videos.length)return;
- let updated=0,eligible=0,waiting=0,failed=0;
+ let cleaned=0,aligned=0,waiting=0,failed=0,checked=0;
  for(const video of state.videos){
   const metrics=state.performance.get(video.id);
   if(!metrics||metrics.views<100){waiting++;continue}
-  const title=cleanMetadataText(video.snippet.title);
+  checked++;
+  let title=cleanMetadataText(video.snippet.title);
   const description=cleanMetadataText(video.snippet.description);
-  if(title===video.snippet.title&&description===video.snippet.description)continue;
-  if(!title||title.length>100)continue;
-  eligible++;
-  try{await applyMetadata(video,title,description,true);updated++}catch(e){failed++;console.warn("Automatic metadata cleanup:",e.message)}
+  try{
+   const search=await bestVideoSearchPhrase(video.id);
+   if(search&&!title.toLocaleLowerCase().includes(search.phrase.toLocaleLowerCase())){
+    const candidate=(search.phrase+" | "+title).trim();
+    if(candidate.length<=100){title=candidate;aligned++}
+   }
+   if(title!==video.snippet.title||description!==video.snippet.description){
+    await applyMetadata(video,title,description,true);
+    if(title===cleanMetadataText(video.snippet.title))cleaned++;
+   }
+  }catch(e){failed++;console.warn("Automatic metadata optimization:",e.message)}
  }
- const note=updated?updated+" video(s) safely cleaned.":eligible?"No changes were needed.":waiting?"Waiting for at least 100 reported views per video before automatic cleanup.":"No safe formatting changes detected.";
- renderAutoOptimizeStatus(note+(failed?" "+failed+" update(s) failed.":""));
+ const note=aligned?aligned+" title(s) aligned with proven YouTube Search phrases.":cleaned?cleaned+" video(s) received safe formatting cleanup.":waiting?"Waiting for at least 100 reported views per video; no metadata changed.":checked?"No sufficiently strong search phrase or safe cleanup was found.":"No eligible video analytics were available yet.";
+ renderAutoOptimizeStatus(note+(failed?" "+failed+" report/update(s) could not be completed.":""));
 }
 function videoRow(v){const s=v.snippet;return '<div class="video-row"><img class="thumb" src="'+(s.thumbnails?.medium?.url||"")+'" alt=""><div class="video-info"><b>'+escapeHtml(s.title)+'</b><small>'+dateLabel(s.publishedAt)+' · '+number(v.statistics?.viewCount)+' views</small></div><button class="video-action" data-opt="'+v.id+'">Optimize</button></div>'}
 function titleSuggestion(title){let clean=title.replace(/\s+/g," ").trim();if(clean.length>68)clean=clean.slice(0,65).replace(/\s+\S*$/,"")+"…";return clean||"A clear, specific title explaining the viewer benefit"}
