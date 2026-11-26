@@ -94,7 +94,7 @@ function renderTopVideos(data){
 function renderAutoOptimizeStatus(note=""){
  const el=$("auto-optimize-status");if(!el)return;
  el.innerHTML=state.autoOptimize
- ?'<b class="auto-on">Low-activity automatic optimization is ON</b><span>JOWI AI checks the latest 2 complete YouTube reporting days (approximately 48 hours). A video becomes eligible when it receives fewer than 20 views in that window. It may align the title with a relevant YouTube Search phrase found in that same window, or safely clean duplicate hashtags and spacing. It will not invent claims or change the video's meaning.</span>'
+ ?'<b class="auto-on">Low-activity automatic optimization is ON</b><span>JOWI AI checks the latest 2 complete YouTube reporting days (approximately 48 hours). A video becomes eligible when it receives fewer than 20 views in that window. It may align the title with a relevant YouTube Search phrase found in that same window, or safely clean duplicate hashtags and spacing. It will not invent claims or change its meaning.</span>'
  :'<b class="auto-off">Automatic updates are paused</b><span>Turn it on to allow low-activity checks and conservative metadata improvements. You can still review suggestions manually.</span>';
  if(note)el.insertAdjacentHTML("beforeend",'<small class="auto-note">'+escapeHtml(note)+'</small>');
  $("toggle-auto-optimize").textContent=state.autoOptimize?"Pause auto updates":"Enable auto updates";
