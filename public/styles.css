@@ -22,3 +22,14 @@
 .topic-chip{display:inline-block;padding:7px 9px;margin:4px;background:#1a2c49;border:1px solid #30476b;border-radius:8px;color:#d7e5ff;font-size:10px}
 .insight-note{margin-top:14px;padding:11px;background:#172238;border-radius:8px;color:var(--muted);font-size:10px;line-height:1.6}
 @media(max-width:600px){.bar-chart{gap:2px}.bar-col{min-width:13px}.rank-track{width:55px}.insight-metrics .metric-card strong{font-size:17px}}
+
+.auto-optimize-panel{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin:10px 0 22px}
+.auto-optimize-panel p{font-size:11px;color:var(--muted);line-height:1.6;margin:6px 0 9px}
+.auto-optimize-status{display:grid;gap:4px;font-size:11px;color:var(--muted);line-height:1.5}
+.auto-optimize-status .auto-on{color:var(--green)}
+.auto-optimize-status .auto-off{color:#f0bd75}
+.auto-optimize-status .auto-note{color:var(--cyan)}
+.topic-chip{min-width:76px}
+.topic-chip b,.topic-chip small{display:block}
+.topic-chip small{font-size:9px;color:var(--muted);margin-top:3px}
+@media(max-width:600px){.auto-optimize-panel{display:block}.auto-optimize-panel button{margin-top:12px}}
