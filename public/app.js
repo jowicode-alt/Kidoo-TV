@@ -130,6 +130,7 @@ async function runAutoOptimization(){
  if(!state.autoOptimize||!state.token||!state.videos.length)return;
  if(!state.recentViewsReady){renderAutoOptimizeStatus("Recent 48-hour analytics request failed: "+(state.recentViewsError||"Unknown API error")+". No automatic changes were made.");return}
  let cleaned=0,aligned=0,waiting=0,failed=0,checked=0;
+ const changedTitles=[];
  for(const video of state.videos){
   const views48h=state.recentViews.get(video.id)||0;
   if(views48h>=20){waiting++;continue}
@@ -145,11 +146,12 @@ async function runAutoOptimization(){
    if(title!==video.snippet.title||description!==video.snippet.description){
     const titleChanged=title!==video.snippet.title;
     await applyMetadata(video,title,description,true);
-    if(titleChanged)aligned++;else cleaned++;
+    if(titleChanged){aligned++;changedTitles.push({before:video.snippet.title,after:title,views:views48h});}else cleaned++;
    }
   }catch(e){failed++;console.warn("Automatic metadata optimization:",e.message)}
  }
- const note=aligned?aligned+" title(s) aligned using relevant search phrases found in the recent reporting window.":cleaned?cleaned+" video(s) received safe formatting cleanup.":waiting?"Videos with 20 or more views in the recent window were left unchanged.":checked?"No relevant search phrase or safe formatting change was found.":"No eligible recent videos were available.";
+ let note=aligned?aligned+" title(s) aligned using relevant search phrases found in the recent reporting window.":cleaned?cleaned+" video(s) received safe formatting cleanup.":waiting?"Videos with 20 or more views in the recent window were left unchanged.":checked?"No relevant search phrase or safe formatting change was found.":"No eligible recent videos were available.";
+ if(changedTitles.length)note+=" Updated titles: "+changedTitles.map(x=>'"'+x.before.slice(0,48)+'" → "'+x.after.slice(0,65)+'" ('+x.views+' views)').join("; ")+".";
  renderAutoOptimizeStatus(note+(failed?" "+failed+" report/update(s) could not be completed.":""));
 }
 function videoRow(v){const s=v.snippet;return '<div class="video-row"><img class="thumb" src="'+(s.thumbnails?.medium?.url||"")+'" alt=""><div class="video-info"><b>'+escapeHtml(s.title)+'</b><small>'+dateLabel(s.publishedAt)+' · '+number(v.statistics?.viewCount)+' views</small></div><button class="video-action" data-opt="'+v.id+'">Optimize</button></div>'}
