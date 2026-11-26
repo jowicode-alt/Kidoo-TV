@@ -3,7 +3,7 @@ import { getAuth, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signO
 import { firebaseConfig, googleOAuthClientId } from "./firebase-config.js";
 
 const $ = (id) => document.getElementById(id);
-const state = { user:null, token:null, channel:null, videos:[], analytics:null };
+const state = { user:null, token:null, channel:null, videos:[], analytics:null, performance:new Map(), autoOptimize:localStorage.getItem("jowi-auto-optimize")!=="off" };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const scopes = ["https://www.googleapis.com/auth/youtube.readonly","https://www.googleapis.com/auth/yt-analytics.readonly","https://www.googleapis.com/auth/youtube.force-ssl"];
@@ -23,6 +23,7 @@ $("signout").addEventListener("click",async()=>{state.token=null;state.channel=n
 $("connect-btn").addEventListener("click",connectYouTube);$("setup-connect").addEventListener("click",connectYouTube);
 $("refresh-videos").addEventListener("click",()=>loadChannelData(true));
 $("refresh-insights").addEventListener("click",()=>loadInsights());
+$("toggle-auto-optimize").addEventListener("click",()=>{state.autoOptimize=!state.autoOptimize;localStorage.setItem("jowi-auto-optimize",state.autoOptimize?"on":"off");renderAutoOptimizeStatus("Setting saved on this device.");if(state.autoOptimize)runAutoOptimization()});
 
 function connectYouTube(){
  if(!state.user){signIn();return}
@@ -53,6 +54,7 @@ async function loadInsights(){
  if(top.status==="fulfilled")renderTopVideos(top.value);else renderReportError("top-videos",top.reason);
  $("topic-signals").innerHTML=topicSummary();
  const dates=dateRange();$("report-window").textContent=dates.startDate.slice(5)+" – "+dates.endDate.slice(5);
+ await runAutoOptimization();
 }
 function renderReportError(id,error){$(id).innerHTML='<div class="empty-state">This report is not available yet. '+escapeHtml(error?.message||"Try refreshing later.")+'</div>'}
 function renderDaily(data){
@@ -66,17 +68,49 @@ function renderTraffic(data){
  $("traffic-sources").innerHTML=rows.slice(0,8).map(r=>'<div class="rank-row"><div><b>'+escapeHtml(String(r[0]).replace(/_/g," ").toLowerCase())+'</b><small>'+number(r[1])+' views · '+(total?Math.round(Number(r[1])/total*100):0)+'%</small></div><div class="rank-track"><i style="width:'+(total?Number(r[1])/total*100:0)+'%"></i></div></div>').join("");
 }
 function renderTopVideos(data){
- const rows=data.rows||[];if(!rows.length){$("top-videos").innerHTML='<div class="empty-state">No video-level analytics are available for this period yet.</div>';$("top-video").textContent="—";$("avg-duration").textContent="—";return}
+ const rows=data.rows||[];state.performance=new Map(rows.map(r=>[r[0],{views:Number(r[1]||0),averageViewDuration:Number(r[3]||0),averageViewPercentage:Number(r[4]||0)}]));if(!rows.length){$("top-videos").innerHTML='<div class="empty-state">No video-level analytics are available for this period yet.</div>';$("top-video").textContent="—";$("avg-duration").textContent="—";return}
  const ids=rows.map(r=>r[0]);const lookup=new Map(state.videos.map(v=>[v.id,v.snippet.title]));$("top-video").textContent=(lookup.get(ids[0])||ids[0]).slice(0,26);
  const totalViews=rows.reduce((s,r)=>s+Number(r[1]||0),0);const weighted=rows.reduce((s,r)=>s+Number(r[1]||0)*Number(r[3]||0),0);$("avg-duration").textContent=totalViews?Math.round(weighted/totalViews)+" sec":"—";
  $("top-videos").innerHTML=rows.slice(0,8).map((r,i)=>'<div class="rank-row"><div><b>'+escapeHtml(lookup.get(r[0])||("Video "+(i+1)))+'</b><small>'+number(r[1])+' views · '+Math.round(Number(r[3]||0))+' sec avg view</small></div><span class="rank-number">#'+(i+1)+'</span></div>').join("");
+}
+function renderAutoOptimizeStatus(note=""){
+ const el=$("auto-optimize-status");if(!el)return;
+ el.innerHTML=state.autoOptimize
+ ?'<b class="auto-on">Automatic safe cleanup is ON</b><span>JOWI AI may clean duplicate hashtags and excess spacing when a video has at least 100 views in the reporting period. It will not invent content or rewrite the meaning of a title.</span>'
+ :'<b class="auto-off">Automatic updates are paused</b><span>Turn it on to allow evidence-gated formatting cleanup. You can still review and apply suggestions manually.</span>';
+ if(note)el.insertAdjacentHTML("beforeend",'<small class="auto-note">'+escapeHtml(note)+'</small>');
+ $("toggle-auto-optimize").textContent=state.autoOptimize?"Pause auto updates":"Enable auto updates";
+}
+function cleanMetadataText(value){
+ let text=String(value||"").replace(/[ \\t]+/g," ").replace(/\\s+\\n/g,"\\n").trim();
+ const seen=new Set();
+ text=text.replace(/#[\\p{L}\\p{N}_]+/gu,tag=>{const key=tag.toLowerCase();if(seen.has(key))return "";seen.add(key);return tag});
+ return text.replace(/ {2,}/g," ").replace(/\\n{3,}/g,"\\n\\n").trim();
+}
+async function runAutoOptimization(){
+ renderAutoOptimizeStatus();
+ if(!state.autoOptimize||!state.token||!state.videos.length)return;
+ let updated=0,eligible=0,waiting=0,failed=0;
+ for(const video of state.videos){
+  const metrics=state.performance.get(video.id);
+  if(!metrics||metrics.views<100){waiting++;continue}
+  const title=cleanMetadataText(video.snippet.title);
+  const description=cleanMetadataText(video.snippet.description);
+  if(title===video.snippet.title&&description===video.snippet.description)continue;
+  if(!title||title.length>100)continue;
+  eligible++;
+  try{await applyMetadata(video,title,description,true);updated++}catch(e){failed++;console.warn("Automatic metadata cleanup:",e.message)}
+ }
+ const note=updated?updated+" video(s) safely cleaned.":eligible?"No changes were needed.":waiting?"Waiting for at least 100 reported views per video before automatic cleanup.":"No safe formatting changes detected.";
+ renderAutoOptimizeStatus(note+(failed?" "+failed+" update(s) failed.":""));
 }
 function videoRow(v){const s=v.snippet;return '<div class="video-row"><img class="thumb" src="'+(s.thumbnails?.medium?.url||"")+'" alt=""><div class="video-info"><b>'+escapeHtml(s.title)+'</b><small>'+dateLabel(s.publishedAt)+' · '+number(v.statistics?.viewCount)+' views</small></div><button class="video-action" data-opt="'+v.id+'">Optimize</button></div>'}
 function titleSuggestion(title){let clean=title.replace(/\s+/g," ").trim();if(clean.length>68)clean=clean.slice(0,65).replace(/\s+\S*$/,"")+"…";return clean||"A clear, specific title explaining the viewer benefit"}
 function descriptionSuggestion(v){const base=(v.snippet.description||"").trim();return base||v.snippet.title+". In this video, we explore the key ideas, practical steps and useful takeaways. Subscribe for more videos on this topic."}
 function renderVideos(){const html=state.videos.map(v=>{const s=v.snippet;return '<div class="video-card"><img src="'+(s.thumbnails?.medium?.url||"")+'" alt=""><div><h4>'+escapeHtml(s.title)+'</h4><p>'+dateLabel(s.publishedAt)+' · '+number(v.statistics?.viewCount)+' views · '+number(v.statistics?.likeCount)+' likes</p><div class="suggestion"><label>Title review</label>'+escapeHtml(titleSuggestion(s.title))+'<small style="display:block;color:#91a1b9;margin-top:5px">A concise review draft, not a guaranteed performance prediction.</small></div><div class="suggestion"><label>Description review</label>'+escapeHtml((s.description||"Add a concise summary in the opening lines.").slice(0,220))+'</div><button class="apply-btn" data-opt="'+v.id+'">Review title & description</button></div></div>'}).join("");$("all-videos").innerHTML=html||'<div class="empty-state">No uploads found. Make sure the selected Google account owns a YouTube channel.</div>'}
-function topicSummary(){const words={};state.videos.forEach(v=>(v.snippet.title+" "+(v.snippet.description||"").slice(0,180)).toLowerCase().match(/[a-z]{4,}/g)?.forEach(w=>{if(!["with","from","your","this","that","what","when","have","will","into","about","video","how","more","than","then","they","their","subscribe","channel"].includes(w))words[w]=(words[w]||0)+1}));const top=Object.entries(words).sort((a,b)=>b[1]-a[1]).slice(0,12);return top.length?top.map(([w,n])=>'<span class="topic-chip">'+escapeHtml(w)+' · '+n+'</span>').join(""):'<div class="empty-state">Not enough video titles to identify recurring topics yet.</div>'}
+function topicSummary(){const words={};state.videos.forEach(v=>(v.snippet.title+" "+(v.snippet.description||"").slice(0,180)).toLowerCase().match(/[a-z]{4,}/g)?.forEach(w=>{if(!["with","from","your","this","that","what","when","have","will","into","about","video","how","more","than","then","they","their","subscribe","channel"].includes(w))words[w]=(words[w]||0)+1}));const top=Object.entries(words).sort((a,b)=>b[1]-a[1]).slice(0,12);return top.length?top.map(([w,n])=>'<span class="topic-chip"><b>'+escapeHtml(w)+'</b><small>'+n+' mentions</small></span>').join(""):'<div class="empty-state">Not enough video titles to identify recurring topics yet.</div>'}
 document.addEventListener("click",e=>{const b=e.target.closest("[data-opt]");if(!b)return;const v=state.videos.find(x=>x.id===b.dataset.opt);if(v)openReview(v)});
 function openReview(v){const s=v.snippet;const newTitle=prompt("Review or edit the video title before applying:",titleSuggestion(s.title));if(newTitle===null)return;const newDescription=prompt("Review or edit the video description:",descriptionSuggestion(v));if(newDescription===null)return;if(!newTitle.trim()){toast("Title cannot be empty.");return}if(!confirm("Apply these changes to YouTube? Only this selected video's title and description will be updated."))return;applyMetadata(v,newTitle.trim(),newDescription)}
-async function applyMetadata(v,title,description){try{const body={id:v.id,snippet:{title,description,categoryId:v.snippet.categoryId||"22",tags:v.snippet.tags||[]}};const r=await fetch("https://www.googleapis.com/youtube/v3/videos?part=snippet",{method:"PUT",headers:{Authorization:"Bearer "+state.token,"Content-Type":"application/json"},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw new Error(data.error?.message||"Could not update video.");toast("Video metadata updated.");const i=state.videos.findIndex(x=>x.id===v.id);if(i>=0)state.videos[i].snippet=data.snippet;renderVideos();$("recent-videos").innerHTML=state.videos.slice(0,4).map(videoRow).join("")}catch(e){toast("Update failed: "+e.message)}}
+async function applyMetadata(v,title,description,silent=false){try{const body={id:v.id,snippet:{title,description,categoryId:v.snippet.categoryId||"22",tags:v.snippet.tags||[]}};const r=await fetch("https://www.googleapis.com/youtube/v3/videos?part=snippet",{method:"PUT",headers:{Authorization:"Bearer "+state.token,"Content-Type":"application/json"},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw new Error(data.error?.message||"Could not update video.");if(!silent)toast("Video metadata updated.");const i=state.videos.findIndex(x=>x.id===v.id);if(i>=0)state.videos[i].snippet=data.snippet;renderVideos();$("recent-videos").innerHTML=state.videos.slice(0,4).map(videoRow).join("")}catch(e){if(!silent)toast("Update failed: "+e.message);throw e}}
+renderAutoOptimizeStatus();
 showView("overview");
