@@ -77,10 +77,12 @@ async function loadInsights(){
   const recent=await reportRecent48h({metrics:"views",dimensions:"video",sort:"-views",maxResults:"200"});
   state.recentViews=new Map((recent.rows||[]).map(row=>[row[0],Number(row[1]||0)]));
   state.recentViewsReady=true;
+  state.recentViewsError="";
  }catch(e){
   state.recentViews=new Map();
   state.recentViewsReady=false;
-  console.warn("Recent-view eligibility report failed:",e.message);
+  state.recentViewsError=e.message||String(e);
+  console.warn("Recent-view eligibility report failed:",e);
  }
  await runAutoOptimization();
 }
@@ -126,7 +128,7 @@ async function bestVideoSearchPhrase(videoId){
 async function runAutoOptimization(){
  renderAutoOptimizeStatus();
  if(!state.autoOptimize||!state.token||!state.videos.length)return;
- if(!state.recentViewsReady){renderAutoOptimizeStatus("Recent 48-hour analytics are not available yet; no automatic changes were made.");return}
+ if(!state.recentViewsReady){renderAutoOptimizeStatus("Recent 48-hour analytics request failed: "+(state.recentViewsError||"Unknown API error")+". No automatic changes were made.");return}
  let cleaned=0,aligned=0,waiting=0,failed=0,checked=0;
  for(const video of state.videos){
   const views48h=state.recentViews.get(video.id)||0;
