@@ -109,11 +109,12 @@ async function runAutoOptimization(){
    const search=await bestVideoSearchPhrase(video.id);
    if(search&&!title.toLocaleLowerCase().includes(search.phrase.toLocaleLowerCase())){
     const candidate=(search.phrase+" | "+title).trim();
-    if(candidate.length<=100){title=candidate;aligned++}
+    if(candidate.length<=100){title=candidate}
    }
    if(title!==video.snippet.title||description!==video.snippet.description){
+    const titleChanged=title!==video.snippet.title;
     await applyMetadata(video,title,description,true);
-    if(title===cleanMetadataText(video.snippet.title))cleaned++;
+    if(titleChanged)aligned++;else cleaned++;
    }
   }catch(e){failed++;console.warn("Automatic metadata optimization:",e.message)}
  }
